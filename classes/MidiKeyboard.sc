@@ -13,22 +13,9 @@ MidiInstrument {
 	}
 }
 
-// a note is a label plus everything that a player will need to
-// instantiate it into a Synth. Should this be a SequencerNote?
-// as it has no midi info...
-
-MidiNote {
-	var <label, <key, <time, <abstime, <duration, <synth, <params;
-
-	*new {
-		^super.newCopyArgs
-	}
-
-}
-
 
 MidiKeyboard {
-	var <low, <high, <size, keys, <instruments, keyOnFn, keyOffFn;
+	var <low, <high, <size, keys, <instruments, recorder, keyOnFn, keyOffFn;
 
     *new { | low=21, high=108 |
         ^super.new.init(low, high)
@@ -40,6 +27,7 @@ MidiKeyboard {
 		size = high - low + 1;
 		keys = Array.newClear(size);
 		instruments = List.new(0);
+		recorder = nil;
 		keyOnFn = nil;
 		keyOffFn = nil;
 	}
@@ -61,38 +49,29 @@ MidiKeyboard {
 		^instruments.select({ | inst | (i >= inst.low) && (i <= inst.high) })[0]
 	}
 
-	// goal here is to make the sequencer take care of the timing
-	// information: this class just does
+	// a recorder is something with startNote and endNote methods
+
+	sendNotes { | argrecorder |
+		recorder = argrecorder;
+	}
 
 	initMIDI {
 		MIDIClient.init;
 		MIDIIn.connectAll;
 
 		keyOnFn = MIDIFunc.noteOn({ | vel, m |
-			var i, inst;
+			var i, inst, note = nil;
 			i = m - low;
 			inst = this.getInstrument(m);
 			if(inst.notNil, {
 				var params = inst.fn.value(m - inst.low, vel);
-				params.postln;
-				keys[i] = Synth.head(nil, inst.synth, params);
-
-			}, { "No instrument found for midi note %".format(m) });
+				if( recorder.notNil, {
+					note = recorder.startNote(i, inst.synth, inst.hasGate, params);
+				});
+				keys[i] = [ Synth.head(nil, inst.synth, params), note ];
+				[ "keyOn", i, keys[i] ].postln;
+			}, { "No instrument found for midi note %".format(m).postln });
 		});
-
-
-			// TODO: hook to send this to the Looper
-
-			//abstime = if(~release.value(i), { beat }, { nil });
-			//note = ~addseqnote.value(~recording, i, vel, time, abstime, nil);
-			//if(~recording != '', {
-			//	n = ~notes.size - 1;
-			//} );
-			// play the note and store the Synth (if there is one) in keys so it can be released
-			//~keys[i] = Synth.head(nil, note[\synth], note[\args]);
-
-
-			//[n, inote[0][2].value(i, inote[1]) ]; // this is nasty
 
 		keyOffFn = MIDIFunc.noteOff({ | vel, m |
 			var i, inst;
@@ -101,30 +80,21 @@ MidiKeyboard {
 			if(inst.notNil, {
 				if(inst.hasGate, {
 					var key = keys[i];
-					if(key != nil, {
-						key.release;
+					[ "keyOff", i, key ].postln;
+					if(key.notNil, {
+						key[0].release;
+						if( key[1].notNil && recorder.notNil, {
+							recorder.stopNote(i, key[1])
+						});
+						keys[i] = nil;
 					})
 				})
 			});
 		});
 
 	}
-		//
-		//
-		// if( ~release.value(i), {
-		// 	key = ~keys[i];
-		// 	if( key != nil, {
-		// 		if( key[0] != nil, {
-		// 			note = ~notes[key[0]];
-		// 			~notes[key[0]][\duration] = beat - note[\abstime];
-		// 		});
-		// 		key[1].release;
-		// 		~keys[i] = nil;
-		// 	});
-		// });
-		//
-		// });
-		//
+
+
 
 
 
