@@ -1,0 +1,9 @@
+(
+  name: "MidiLooper",
+  summary: "Midi pad and sound looper.",
+  version: "1.0.0",
+  schelp: "MidiLooper",
+  dependencies: [],
+  license: "GPL",
+  copyright: "Mike Lynch 2022"
+)
