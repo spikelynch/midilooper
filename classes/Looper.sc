@@ -1,22 +1,10 @@
 
-// Looper is a class for recording and playing back notes on a loop
-
-// ~notes is a list of notes like:
-
-// [ label, key, bartime, abstime, duration, velocity, [ synth, params ] ]
-//
-// the sequencer schedules everything in this array at the start of a bar.
-//
-// bartime is the start of the note in beats relative to the bar
-// key is the relative midi note
-// abstime is the time in absolute beats when the note was started (for calculating durations)
-// duration is the length of the note - it will be nil for a percussive note
-// velocity is the loudness
-// [ synth, params ] are which synth and how to play it, from the ~insts data structure
+// Looper is a class for recording and playing back notes with a simple
+// TempoClock-driven event loop.
 
 
 LooperNote {
-	var <label, <index, <time, <abstime, <>duration, <gated, <synth, <params;
+	var <label, <index, <>time, <abstime, <>duration, <gated, <synth, <params;
 
 	*new {
 		^super.newCopyArgs
@@ -26,7 +14,7 @@ LooperNote {
 
 
 Looper {
-	var bpm, beatsperbar, size, tc, <notes, keys, <recording, <loop;
+	var bpm, beatsperbar, size, tc, <notes, keys, <recording, <playing, <loop;
 
 	*new { | bpm=120, beatsperbar=4, size=88 |
 		^super.new.init(bpm, beatsperbar, size);
@@ -39,11 +27,11 @@ Looper {
 		tc = TempoClock.new(bpm / 60, queueSize: 1024);
 		tc.schedAbs(tc.nextBar, {
 			tc.beatsPerBar_(beatsperbar);
-			[ "set beatsperbar to ", beatsperbar ].postln;
 		});
 		notes = List.new(0);
 		keys = Array.newClear(size);
 		recording = nil;
+		playing = false;
 	}
 
 	recordingOn { | label |
@@ -66,7 +54,6 @@ Looper {
 
 	stopNote { | i, note |
 		var beat = tc.beats;
-		[ "stopNote", i, beat, note.abstime ].postln;
 		if( recording.notNil, { note.duration_(beat - note.abstime) });
 	}
 
@@ -82,8 +69,16 @@ Looper {
 		})
 	}
 
+	add { | note |
+		^notes.add(note);
+	}
+
+	remove { | fn |
+		^notes.removeAllSuchThat(fn);
+	}
 
 	play {
+		playing = true;
 		loop = tc.play({
 			notes.do({ | note, ni |
 				var node;
@@ -113,12 +108,22 @@ Looper {
 					});
 				});
 			});
-			beatsperbar;
+			if( playing, { beatsperbar }, { nil });
 		}, quant: beatsperbar);
 	}
 
+	pause {
+		playing = false;
+	}
 
+	quantize { | q |
+		notes.do({ | note |
+			note.time = note.time.round(q);
+		});
+	}
 
 
 }
+
+
 

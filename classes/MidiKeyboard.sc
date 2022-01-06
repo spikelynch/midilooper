@@ -2,14 +2,30 @@
 // and manages playing and releasing the synths
 
 MidiInstrument {
-	var <label, <low, <high, <synth, <fn;
+	var <label, <low, <high, <synth, <fn, <gated;
 
-	*new {
-		^super.newCopyArgs
+	*new { | label, low, high, synth, fn |
+		^super.new.init(label, low, high, synth, fn)
 	}
 
-	hasGate {
-		^SynthDescLib.match(synth).hasGate;
+	init { | arglabel, arglow, arghigh, argsynth, argfn |
+		var synthdesc;
+		label = arglabel;
+		low = arglow;
+		high = arghigh;
+		synth = argsynth;
+		fn = argfn;
+		synthdesc = SynthDescLib.match(synth);
+		if( synthdesc.isNil, {
+			Error("No SynthDef called %".format(synth)).throw;
+		},
+		{
+			gated = synthdesc.hasGate;
+		});
+	}
+
+	play { | m, vel |
+		^fn.value(m - low, vel)
 	}
 }
 
@@ -38,7 +54,7 @@ MidiKeyboard {
 		if((ihigh > high), { Error("high note out of range").throw });
 		// todo - warn for overlaps
 		instruments.addFirst(MidiInstrument(label, ilow, ihigh, synth, fn))
-		^instruments;
+		^instruments.first;
 	}
 
 	removeInstrument { | label |
@@ -64,12 +80,11 @@ MidiKeyboard {
 			i = m - low;
 			inst = this.getInstrument(m);
 			if(inst.notNil, {
-				var params = inst.fn.value(m - inst.low, vel);
+				var params = inst.play(m, vel);
 				if( recorder.notNil, {
-					note = recorder.startNote(i, inst.synth, inst.hasGate, params);
+					note = recorder.startNote(i, inst.synth, inst.gated, params);
 				});
 				keys[i] = [ Synth.head(nil, inst.synth, params), note ];
-				[ "keyOn", i, keys[i] ].postln;
 			}, { "No instrument found for midi note %".format(m).postln });
 		});
 
@@ -78,9 +93,8 @@ MidiKeyboard {
 			i = m - low;
 			inst = this.getInstrument(m);
 			if(inst.notNil, {
-				if(inst.hasGate, {
+				if(inst.gated, {
 					var key = keys[i];
-					[ "keyOff", i, key ].postln;
 					if(key.notNil, {
 						key[0].release;
 						if( key[1].notNil && recorder.notNil, {
@@ -93,6 +107,21 @@ MidiKeyboard {
 		});
 
 	}
+
+	// Doing it in this class so that it can use the instruments
+	// i and j are key notes relative to the low note of the controller
+
+	metronome { | label, n, i, j |
+		var insti = this.getInstrument(i), instj = this.getInstrument(j), paramsi, paramsj;
+		paramsi = insti.play(i, 64);
+		paramsj = instj.play(j, 64);
+		(0..n-1).do({
+			|m|
+			recorder.add(LooperNote(label, i - low, m * 2, 0, 0.125, insti.gated, insti.synth, paramsi));
+			recorder.add(LooperNote(label, j - low, m * 2 + 1, 0, 0.125, instj.gated, instj.synth, paramsj));
+		});
+	}
+
 
 
 
