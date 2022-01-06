@@ -4,10 +4,26 @@
 
 
 LooperNote {
-	var <label, <index, <>time, <abstime, <>duration, <gated, <synth, <params;
+	var <label, <index, <rawtime, <>time, <abstime, <>duration, <gated, <synth, <params;
 
-	*new {
-		^super.newCopyArgs
+	*new { | label, index, rawtime, abstime, duration, gated, synth, params |
+		^super.new.init(label, index, rawtime, abstime, duration, gated, synth, params);
+	}
+
+	init { | al, ai, ar, aa, ad, ag, as, ap |
+		label = al;
+		index = ai;
+		rawtime = ar;
+		time = ar;
+		abstime = aa;
+		duration = ad;
+		gated = ag;
+		synth = as;
+		params = ap;
+	}
+
+	reset {
+		time = rawtime
 	}
 
 }
@@ -117,9 +133,9 @@ Looper {
 	}
 
 	quantize { | q |
-		notes.do({ | note |
-			note.time = note.time.round(q);
-		});
+		if( q.isNil,
+			{ notes.do( { | note | note.reset }); },
+			{ notes.do({ | note | note.time = note.rawtime.round(q) }) } );
 	}
 
 
