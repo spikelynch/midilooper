@@ -30,7 +30,7 @@ LooperNote {
 
 
 Looper {
-	var bpm, beatsperbar, size, tc, <notes, keys, <recording, <playing, <loop;
+	var <bpm, <beatsperbar, size, <tc, <notes, keys, <recording, <playing, <loop, <ramp;
 
 	*new { | bpm=120, beatsperbar=4, size=88 |
 		^super.new.init(bpm, beatsperbar, size);
@@ -48,6 +48,10 @@ Looper {
 		keys = Array.newClear(size);
 		recording = nil;
 		playing = false;
+	}
+
+	duration {
+		^(beatsperbar * 60 / bpm)
 	}
 
 	recordingOn { | label |
@@ -138,6 +142,14 @@ Looper {
 			{ notes.do({ | note | note.time = note.rawtime.round(q) }) } );
 	}
 
+	save { | filename |
+		notes.writeArchive(filename);
+	}
+
+	load { | filename |
+		// out busses probably won't work between sessions
+		notes = Object.readArchive(filename);
+	}
 
 }
 

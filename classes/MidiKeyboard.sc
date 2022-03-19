@@ -2,17 +2,18 @@
 // and manages playing and releasing the synths
 
 MidiInstrument {
-	var <label, <low, <high, <synth, <fn, <gated;
+	var <label, <low, <high, <out, <synth, <fn, <gated;
 
-	*new { | label, low, high, synth, fn |
-		^super.new.init(label, low, high, synth, fn)
+	*new { | label, low, high, synth, fn, out=0 |
+		^super.new.init(label, low, high, synth, fn, out)
 	}
 
-	init { | arglabel, arglow, arghigh, argsynth, argfn |
+	init { | arglabel, arglow, arghigh, argsynth, argfn, argout |
 		var synthdesc;
 		label = arglabel;
 		low = arglow;
 		high = arghigh;
+		out = argout;
 		synth = argsynth;
 		fn = argfn;
 		synthdesc = SynthDescLib.match(synth);
@@ -25,7 +26,8 @@ MidiInstrument {
 	}
 
 	play { | m, vel |
-		^fn.value(m - low, vel)
+		var params = fn.value(m - low, vel);
+		^(params ++ [ \out, out ])
 	}
 }
 
@@ -48,12 +50,12 @@ MidiKeyboard {
 		keyOffFn = nil;
 	}
 
-	addInstrument { | label, ilow, ihigh, synth, fn |
+	addInstrument { | label, ilow, ihigh, synth, fn, out=0 |
 		if(( ihigh < ilow ), { Error("highest note must be >= lowest note").throw });
 		if((ilow < low), { Error("low note out of range").throw });
 		if((ihigh > high), { Error("high note out of range").throw });
 		// todo - warn for overlaps
-		instruments.addFirst(MidiInstrument(label, ilow, ihigh, synth, fn))
+		instruments.addFirst(MidiInstrument(label, ilow, ihigh, synth, fn, out))
 		^instruments.first;
 	}
 
